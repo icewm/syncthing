@@ -411,6 +411,7 @@ func build(target target, tags []string) {
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
+		args = append(args, "-installsuffix", strings.Join(tags, "-"))
 	}
 	if race {
 		args = append(args, "-race")
