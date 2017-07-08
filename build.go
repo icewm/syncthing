@@ -1073,35 +1073,26 @@ func buildGOPATH() (string, error) {
 
 	updated, removed := 0, 0
 
-	copyFile := func(path, dst string, info os.FileInfo) error {
-		otherInfo, err := os.Stat(dst)
-		if err == nil && otherInfo.ModTime().Equal(info.ModTime()) {
+	copyFile := func(src, dst string, info os.FileInfo) error {
+		in, err := ioutil.ReadFile(src)
+		if err != nil {
+			return err
+		}
+
+		out, err := ioutil.ReadFile(dst)
+		if err != nil {
+			goto copy
+		}
+
+		if bytes.Equal(in, out) {
 			os.Chmod(dst, info.Mode())
 			return nil
 		}
 
-		outFd, err := os.Create(dst)
-		if err != nil {
+	copy:
+		if err := ioutil.WriteFile(dst, in, info.Mode()); err != nil {
 			return err
 		}
-		defer outFd.Close()
-
-		inFd, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer inFd.Close()
-
-		if _, err := io.Copy(outFd, inFd); err != nil {
-			return err
-		}
-
-		if err := outFd.Close(); err != nil {
-			return err
-		}
-
-		os.Chmod(dst, info.Mode())
-		os.Chtimes(dst, info.ModTime(), info.ModTime())
 
 		updated++
 		return nil
