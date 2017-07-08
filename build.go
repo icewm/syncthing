@@ -198,7 +198,14 @@ func main() {
 	}
 
 	if os.Getenv("GOPATH") == "" {
-		setGoPath()
+		lazyRebuildAssets()
+		buildGoRoot()
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		os.Setenv("GOPATH", filepath.Join(wd, "_build"))
+		fmt.Println("Using synthesized gopath")
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
@@ -309,18 +316,6 @@ func runCommand(cmd string, target target) {
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
-}
-
-// setGoPath sets GOPATH correctly with the assumption that we are
-// in $GOPATH/src/github.com/syncthing/syncthing.
-func setGoPath() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-	log.Println("GOPATH is", gopath)
-	os.Setenv("GOPATH", gopath)
 }
 
 func parseFlags() {
@@ -1040,8 +1035,6 @@ func buildGoRoot() error {
 			return nil
 		}
 
-		fmt.Println(path, "->", dst)
-
 		outFd, err := os.Create(dst)
 		if err != nil {
 			return err
@@ -1099,7 +1092,6 @@ func buildGoRoot() error {
 			return nil
 		}
 		if _, ok := exists[path]; !ok {
-			fmt.Println("rm", path)
 			os.Remove(path)
 		}
 		return nil
