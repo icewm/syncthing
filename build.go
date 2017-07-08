@@ -1046,6 +1046,9 @@ func buildTempDir() (string, error) {
 }
 
 func buildGOPATH() (string, error) {
+	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
+	dirs := []string{"cmd", "lib", "vendor", "test"}
+
 	gopath, err := buildTempDir()
 	if err != nil {
 		return "", err
@@ -1058,8 +1061,6 @@ func buildGOPATH() (string, error) {
 			log.Println("... in", time.Since(t0))
 		}()
 	}
-
-	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
 
 	copyFile := func(path, dst string, info os.FileInfo) error {
 		otherInfo, err := os.Stat(dst)
@@ -1096,7 +1097,6 @@ func buildGOPATH() (string, error) {
 		return "", err
 	}
 
-	dirs := []string{"cmd", "lib", "vendor"}
 	exists := map[string]struct{}{}
 	for _, dir := range dirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
