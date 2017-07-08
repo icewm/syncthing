@@ -1036,7 +1036,13 @@ func buildTempDir() (string, error) {
 	}
 	hash := sha256.Sum256([]byte(wd))
 	base := fmt.Sprintf("syncthing-%x", hash[:4])
-	return filepath.Join(os.TempDir(), base), nil
+	var tmpDir string
+	if t := os.Getenv("STTMPDIR"); t != "" {
+		tmpDir = t
+	} else {
+		tmpDir = os.TempDir()
+	}
+	return filepath.Join(tmpDir, base), nil
 }
 
 func buildGOPATH() (string, error) {
