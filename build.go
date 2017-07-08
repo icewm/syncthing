@@ -1065,6 +1065,7 @@ func buildGOPATH() (string, error) {
 	copyFile := func(path, dst string, info os.FileInfo) error {
 		otherInfo, err := os.Stat(dst)
 		if err == nil && otherInfo.ModTime().Equal(info.ModTime()) {
+			os.Chmod(dst, info.Mode())
 			return nil
 		}
 
