@@ -13,6 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"errors"
 	"flag"
 	"fmt"
@@ -1028,14 +1029,31 @@ func metalintShort() {
 	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
 }
 
-func buildGOPATH() (string, error) {
+func buildTempDir() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
+	hash := sha256.Sum256([]byte(wd))
+	base := fmt.Sprintf("syncthing-%x", hash[:4])
+	return filepath.Join(os.TempDir(), base), nil
+}
 
-	gopath := filepath.Join(wd, "_build")
-	root := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
+func buildGOPATH() (string, error) {
+	gopath, err := buildTempDir()
+	if err != nil {
+		return "", err
+	}
+
+	if debug {
+		t0 := time.Now()
+		log.Println("build temporary GOPATH in", gopath)
+		defer func() {
+			log.Println("... in", time.Since(t0))
+		}()
+	}
+
+	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
 
 	copyFile := func(path, dst string, info os.FileInfo) error {
 		otherInfo, err := os.Stat(dst)
@@ -1067,7 +1085,7 @@ func buildGOPATH() (string, error) {
 		return nil
 	}
 
-	if err := os.MkdirAll(root, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(pkg, 0777); err != nil && !os.IsExist(err) {
 		return "", err
 	}
 
@@ -1078,7 +1096,7 @@ func buildGOPATH() (string, error) {
 			if err != nil {
 				return err
 			}
-			dst := filepath.Join(root, path)
+			dst := filepath.Join(pkg, path)
 			exists[dst] = struct{}{}
 			if info.IsDir() {
 				os.MkdirAll(dst, 0777)
@@ -1092,7 +1110,7 @@ func buildGOPATH() (string, error) {
 		}
 	}
 
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(pkg, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
