@@ -199,13 +199,12 @@ func main() {
 
 	if os.Getenv("GOPATH") == "" {
 		lazyRebuildAssets()
-		buildGoRoot()
+		buildGOPATH()
 		wd, err := os.Getwd()
 		if err != nil {
 			log.Fatal(err)
 		}
 		os.Setenv("GOPATH", filepath.Join(wd, "_build"))
-		fmt.Println("Using synthesized gopath")
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
@@ -310,8 +309,8 @@ func runCommand(cmd string, target target) {
 	case "version":
 		fmt.Println(getVersion())
 
-	case "goroot":
-		buildGoRoot()
+	case "gopath":
+		buildGOPATH()
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
@@ -1026,7 +1025,7 @@ func metalintShort() {
 	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
 }
 
-func buildGoRoot() error {
+func buildGOPATH() error {
 	root := "_build/src/github.com/syncthing/syncthing"
 
 	copyFile := func(path, dst string, info os.FileInfo) error {
