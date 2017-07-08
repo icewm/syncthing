@@ -1046,13 +1046,13 @@ func buildTempDir() (string, error) {
 }
 
 func buildGOPATH() (string, error) {
-	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
-	dirs := []string{"cmd", "lib", "vendor", "test"}
-
 	gopath, err := buildTempDir()
 	if err != nil {
 		return "", err
 	}
+
+	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
+	dirs := []string{"cmd", "lib", "vendor", "test"}
 
 	if debug {
 		t0 := time.Now()
