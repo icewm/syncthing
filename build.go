@@ -65,7 +65,7 @@ var targets = map[string]target{
 	"all": {
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff.
-		buildPkg: "./cmd/...",
+		buildPkg: "github.com/syncthing/syncthing/cmd/...",
 		tags:     []string{"purego"},
 	},
 	"syncthing": {
@@ -75,7 +75,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6", "procps"},
 		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
-		buildPkg:    "./cmd/syncthing",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/syncthing",
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -110,7 +110,7 @@ var targets = map[string]target{
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Discovery Server",
-		buildPkg:    "./cmd/stdiscosrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -132,7 +132,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Server",
-		buildPkg:    "./cmd/strelaysrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -153,7 +153,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaypoolsrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
-		buildPkg:    "./cmd/strelaypoolsrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaypoolsrv",
 		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -250,7 +250,6 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		install(target, tags)
-		metalintShort()
 
 	case "build":
 		var tags []string
@@ -258,13 +257,12 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		build(target, tags)
-		metalintShort()
 
 	case "test":
-		test("./lib/...", "./cmd/...")
+		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench("./lib/...", "./cmd/...")
+		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "assets":
 		rebuildAssets()
@@ -304,6 +302,9 @@ func runCommand(cmd string, target target) {
 
 	case "version":
 		fmt.Println(getVersion())
+
+	case "goroot":
+		buildGoRoot()
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
@@ -354,7 +355,7 @@ func setup() {
 		runPrint("go", "get", "-u", pkg)
 	}
 
-	runPrint("go", "install", "-v", "./vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
+	runPrint("go", "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
@@ -392,6 +393,7 @@ func install(target target, tags []string) {
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
+		args = append(args, "-installsuffix", strings.Join(tags, "-"))
 	}
 	if race {
 		args = append(args, "-race")
@@ -638,7 +640,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint("go", "generate", "./lib/...")
+	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...")
 }
 
 func translate() {
@@ -1027,4 +1029,81 @@ func metalint() {
 func metalintShort() {
 	lazyRebuildAssets()
 	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
+}
+
+func buildGoRoot() error {
+	root := "_build/src/github.com/syncthing/syncthing"
+
+	copyFile := func(path, dst string, info os.FileInfo) error {
+		otherInfo, err := os.Stat(dst)
+		if err == nil && otherInfo.ModTime().Equal(info.ModTime()) {
+			return nil
+		}
+
+		fmt.Println(path, "->", dst)
+
+		outFd, err := os.Create(dst)
+		if err != nil {
+			return err
+		}
+		defer outFd.Close()
+
+		inFd, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer inFd.Close()
+
+		if _, err := io.Copy(outFd, inFd); err != nil {
+			return err
+		}
+
+		if err := outFd.Close(); err != nil {
+			return err
+		}
+
+		os.Chtimes(dst, info.ModTime(), info.ModTime())
+		return nil
+	}
+
+	if err := os.MkdirAll(root, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	dirs := []string{"cmd", "lib", "vendor"}
+	exists := map[string]struct{}{}
+	for _, dir := range dirs {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			dst := filepath.Join(root, path)
+			exists[dst] = struct{}{}
+			if info.IsDir() {
+				os.MkdirAll(dst, 0777)
+				return nil
+			}
+			copyFile(path, dst, info)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if _, ok := exists[path]; !ok {
+			fmt.Println("rm", path)
+			os.Remove(path)
+		}
+		return nil
+	})
+
+	return nil
 }
