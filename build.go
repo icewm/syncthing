@@ -199,12 +199,11 @@ func main() {
 
 	if os.Getenv("GOPATH") == "" {
 		lazyRebuildAssets()
-		buildGOPATH()
-		wd, err := os.Getwd()
+		gopath, err := buildGOPATH()
 		if err != nil {
 			log.Fatal(err)
 		}
-		os.Setenv("GOPATH", filepath.Join(wd, "_build"))
+		os.Setenv("GOPATH", gopath)
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
@@ -310,7 +309,11 @@ func runCommand(cmd string, target target) {
 		fmt.Println(getVersion())
 
 	case "gopath":
-		buildGOPATH()
+		gopath, err := buildGOPATH()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(gopath)
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
@@ -1025,8 +1028,14 @@ func metalintShort() {
 	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
 }
 
-func buildGOPATH() error {
-	root := "_build/src/github.com/syncthing/syncthing"
+func buildGOPATH() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	gopath := filepath.Join(wd, "_build")
+	root := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
 
 	copyFile := func(path, dst string, info os.FileInfo) error {
 		otherInfo, err := os.Stat(dst)
@@ -1059,7 +1068,7 @@ func buildGOPATH() error {
 	}
 
 	if err := os.MkdirAll(root, 0755); err != nil && !os.IsExist(err) {
-		return err
+		return "", err
 	}
 
 	dirs := []string{"cmd", "lib", "vendor"}
@@ -1079,7 +1088,7 @@ func buildGOPATH() error {
 			return nil
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -1096,5 +1105,5 @@ func buildGOPATH() error {
 		return nil
 	})
 
-	return nil
+	return gopath, nil
 }
