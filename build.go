@@ -1087,6 +1087,7 @@ func buildGOPATH() (string, error) {
 			return err
 		}
 
+		os.Chmod(dst, info.Mode())
 		os.Chtimes(dst, info.ModTime(), info.ModTime())
 		return nil
 	}
