@@ -188,7 +188,6 @@ func init() {
 }
 
 func main() {
-	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
 	if debug {
@@ -446,7 +445,7 @@ func buildTar(target target) {
 	}
 
 	tarGz(filename, target.archiveFiles)
-	log.Println(filename)
+	fmt.Println(filename)
 }
 
 func buildZip(target target) {
@@ -470,7 +469,7 @@ func buildZip(target target) {
 	}
 
 	zipFile(filename, target.archiveFiles)
-	log.Println(filename)
+	fmt.Println(filename)
 }
 
 func buildDeb(target target) {
