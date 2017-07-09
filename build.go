@@ -210,8 +210,8 @@ func main() {
 			if err := buildGOPATH(gopath); err != nil {
 				log.Fatal(err)
 			}
-			os.Setenv("GOPATH", gopath)
 		}
+		os.Setenv("GOPATH", gopath)
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
