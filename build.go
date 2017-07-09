@@ -41,6 +41,7 @@ var (
 	goVersion float64
 	race      bool
 	debug     = os.Getenv("BUILDDEBUG") != ""
+	nogopath  bool
 )
 
 type target struct {
@@ -190,6 +191,8 @@ func init() {
 func main() {
 	log.SetFlags(0)
 
+	parseFlags()
+
 	if debug {
 		t0 := time.Now()
 		defer func() {
@@ -198,19 +201,22 @@ func main() {
 	}
 
 	if os.Getenv("GOPATH") == "" {
-		lazyRebuildAssets()
-		gopath, err := buildGOPATH()
+		gopath, err := buildTempDir()
 		if err != nil {
 			log.Fatal(err)
 		}
-		os.Setenv("GOPATH", gopath)
+		if !nogopath {
+			lazyRebuildAssets()
+			if err := buildGOPATH(gopath); err != nil {
+				log.Fatal(err)
+			}
+			os.Setenv("GOPATH", gopath)
+		}
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
-
-	parseFlags()
 
 	checkArchitecture()
 
@@ -309,9 +315,14 @@ func runCommand(cmd string, target target) {
 		fmt.Println(getVersion())
 
 	case "gopath":
-		gopath, err := buildGOPATH()
+		gopath, err := buildTempDir()
 		if err != nil {
 			log.Fatal(err)
+		}
+		if !nogopath {
+			if err := buildGOPATH(gopath); err != nil {
+				log.Fatal(err)
+			}
 		}
 		fmt.Println(gopath)
 
@@ -326,6 +337,7 @@ func parseFlags() {
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.BoolVar(&nogopath, "no-build-gopath", nogopath, "Don't build GOPATH, assume it's OK")
 	flag.Parse()
 }
 
@@ -1055,12 +1067,7 @@ func buildTempDir() (string, error) {
 	return filepath.Join(tmpDir, base), nil
 }
 
-func buildGOPATH() (string, error) {
-	gopath, err := buildTempDir()
-	if err != nil {
-		return "", err
-	}
-
+func buildGOPATH(gopath string) error {
 	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
 	dirs := []string{"cmd", "lib", "vendor", "test"}
 
@@ -1100,7 +1107,7 @@ func buildGOPATH() (string, error) {
 	}
 
 	if err := os.MkdirAll(pkg, 0777); err != nil && !os.IsExist(err) {
-		return "", err
+		return err
 	}
 
 	exists := map[string]struct{}{}
@@ -1119,7 +1126,7 @@ func buildGOPATH() (string, error) {
 			return nil
 		})
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
@@ -1141,5 +1148,5 @@ func buildGOPATH() (string, error) {
 		log.Printf("updated %d files, removed %d", updated, removed)
 	}
 
-	return gopath, nil
+	return nil
 }
